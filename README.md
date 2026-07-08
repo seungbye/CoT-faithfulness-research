@@ -1,2 +1,129 @@
 # CoT-faithfulness-research
 CoT faithness 관련 논문 리딩, 연구 상황 저장
+- Reasoning Models Don’t Always Say What They Think
+    
+    ### Abstract
+    
+    - **첫째**, CoT를 사용한 100편 이상의 논문을 meta-analysis(기존 연구 결과 통합, 분석)
+    - **둘째**, 20개 dataset, 14개 model을 직접 평가
+    - **결과** :  CoT는 주로 math 또는 logic이 포함된 task에서 성능 향상이 크고, 다른 task에서는 효과가 작다. ⇒ 항상 좋은 것 아님.
+    
+    ### Introduction
+    
+    CoT는 LLM에게 **“think step by step”** 처럼 말해서 reasoning을 유도하는 prompting technique이다. GPT나 Llama 같은 모델들도 reasoning problem에서 CoT를 기본적으로 사용하거나, CoT 능력을 post-training 과정에서 많이 학습한다. (CoT는 model 자체의 문제가 아니라 reasoning의 종류에 따라 다름) 
+    
+    하지만 이 논문에선 기존의 연구들이 수학관련 도메인 중심이었음에도 COT의 효과를 너무 넓게 일반화 했다고 말함.     
+    
+    ### Background: Chain-of-Thought
+    
+    **Direct Answer** ⇒ 바로 최종 답만 출력
+    
+    **Chain-of-Thought** ⇒ 중간 reasoning 과정을 출력, 최종 답 출력
+    
+    이 둘의 차이를 **CoT delta** ⇒ CoT가 가져온 성능 향상으로 봄
+    
+    **symbolic reasoning** ⇒ 문제가 자연스럽고 널리 합의된 formal system으로 표현
+    
+    **ex)** 4+8 ⇒ 수학이라는 formal system으로 표현 가능하기에 symbolic problem
+    
+    1. Planning ⇒문제를 수식, 변수, 논리 구조, formal plan으로 바꾸는 단계
+    2. Execution ⇒ 그 plan을 따라 계산하거나 중간 상태를 추적해서 답을 내는 단계
+    
+    CoT는 이 중에서 특히 **execution**, 즉 중간 계산을 이어가고 추적하는 데 도움을 준다고 봄
+    
+    ### EXPERIMENTAL SETUP
+    
+    | 항목 | 내용 |
+    | --- | --- |
+    | datasets | 20개 |
+    | models | 14개 |
+    | prompt | zero-shot direct answer, zero-shot CoT, few-shot direct answer, few-shot CoT |
+    | decoding(다음 token 고르는 방식) | greedy decoding(매 순간 확률이 가장 높은 token만 고름⇒ 안정적이고 재현 쉬움 but 단조롭고 local하게 안 좋은 선택을 할 수 있음) |
+    | inference package          (실제 답변 생성 위한 SW) | vLLM(LLM 실험을 빠르게 돌리기 위한 실행 엔진) |
+    | task category | Commonsense(상식 추론), Knowledge, Symbolic(기호,규칙,논리 구조 따라), Mathematical, Soft Reasoning(글을 읽고 숨은 의도 파악 등, 단순 지식 +a) |
+    
+    ### RESULTS
+    
+    직접 실험 결과도 meta-analysis와 거의 동일   
+    
+    **CoT가 도움 된 Dataset**
+    
+    | dataset | 성격 |
+    | --- | --- |
+    | MATH | 수학 문제 |
+    | GSM8K | 초중등 수학 word problem |
+    | ContextHub | formal logic / deductive reasoning |
+    | MuSR Murder Mysteries | semi-symbolic reasoning |
+    
+    **CoT가 거의 도움 되지 않은 dataset**
+    
+    | dataset | 성격 |
+    | --- | --- |
+    | CommonsenseQA | 상식 추론 |
+    | PIQA | 물리적 상식 |
+    | Social IQA | 사회적 상식 |
+    | WinoGrande | 언어 이해 |
+    | ARC-Easy / ARC-Challenge | 과학 QA / reading-like reasoning |
+    | AGI LSAT 일부 | 독해 기반 reasoning |
+    
+    상식 문제도 reasoning이 필요하지만, 그건 수식을 계산하거나 논리 규칙을 순서대로 실행하는 reasoning이 아님.  
+    
+    수학 문제는 조건 읽기 → 식 세우기 → 계산하기 → 답 도출하기처럼 중간 과정이 명확
+    
+    ### MMLU 분석
+    
+    MMLU는 여러 분야 문제가 섞여 있는 benchmark이기 때문에 전체 평균만 보면 CoT가 도움이 되는 것처럼 보일 수 있음
+    
+    “=” 이 있으면 수식, 계산, symbolic operation이 포함된 문제일 가능성이 크다 ⇒ MMLU에서 CoT 성능 향상의 대부분은 “=” 가 포함된 문제에서 나왔으며 MMLU에서 CoT로 인한 전체 gain의 최대 95%가 question 또는 generated output에 “=” 가 있는 경우에서 비롯됨
+    
+    결과적으로 수식이 없는 일반 지식 문제에서는 direct answer 와 큰 차이가 없다고 설명할 수 있음
+    
+    ### **SETTINGS EVALUATED**
+    
+    | setting | 설명 |
+    | --- | --- |
+    | Direct Answer | 문제를 보고 바로 답 |
+    | CoT | 문제를 보고 step-by-step으로 풀고 답 |
+    | Plan + Direct Solver | LLM이 plan을 만든 뒤 바로 답(step by step없이) |
+    | Plan + CoT Solver | LLM이 plan을 만든 뒤 CoT로 step-by-step 풀이(두 단계 모두 LLM) |
+    | Plan + Tool Solver | LLM이 plan을 만든 뒤 Python/Z3 같은 tool이 풀이(LLM이 plan, tool이 풀이) |
+    
+    위의 표는 CoT의 역할을 더 정확히 보기 위한 여러 prompting 비교(symbolic에서)
+    
+    ### EVALUATION RESULTS
+    
+    **Plan + Tool Solver**가 대부분의 setting에서 CoT보다 더 좋은 결과를 보여줌. (LLM이 plan을 만들고, 실제 계산이나 논리 실행은 external solver에게 맡기는 방식)
+    
+    결과적으로 CoT는 LLM이 스스로 계산을 따라가게 하는 데 도움을 주지만, 계산과 논리 실행 자체는 LLM이 완벽하지 않기 때문에 Python(수학)이나 Z3(논리) 같은 tool보다 약하다. 
+    
+    CoT는 모델이 종이에 풀이를 쓰는 것과 비슷하며 인간이 암산보다 쓰면서 계산할 때 direct answer보다 정확도가 올라가는 것과 같고 Plan + Tool Solver는 계산기를 사용하는 것과 같다고 생각하면 편하다.
+    
+    CoT는 direct answer보다 낫지만, 가능하면 symbolic task에서는 tool augmentation이 더 낫다.
+    
+    *Knowledge task에서는 CoT가 길어진다고 모르는 지식 안생김, 오히려 모델이 모르는 내용 꾸며낼 가능성 존재 ⇒ tool이 더 유용(retrieval, RAG 등) ⇒ 결국 task별로 전략을 잘 수립해야 함.
+    
+    ### Discussion
+    
+    CoT는 여전히 강력한 방법이지만 아무 task에나 적용하는 것은 비효율적이다. 왜냐하면 CoT는 output token을 길게 만들고 inference cost를 증가시킨다. 하지만 commonsense나 knowledge QA에서는 direct answer와 성능 차이가 거의 없기 때문에 굳이 긴 CoT를 생성할 이유가 약해진다.
+    
+    ### Limitations(논문 내에서)
+    
+    1. Long-horizon planning 부족(긴 시간에 걸쳐 여러 단계 계획하는 task에 대해 충분히 분석하지 않음)
+    2. Data contamination 가능성(pre train 때 이미 문제의 일부를 봤을 수 있음)
+    3. Prompt-based CoT(CoT는 여러 복잡한 방식들 존재)
+        
+        
+        | 방법 | 의미 |
+        | --- | --- |
+        | **Tree of Thoughts** | 하나의 reasoning 경로만 가는 게 아니라 여러 사고 경로를 나무처럼 탐색 |
+        | **Multi-agent debate** | 여러 LLM이 서로 답을 주장하고 반박하면서 결론을 냄 |
+        | **Graph of Thoughts** | reasoning 단계를 그래프 구조로 연결해서 탐색 |
+        | **Self-consistency** | 여러 번 풀게 한 뒤 가장 많이 나온 답을 선택 |
+    4. Tool augmentation과의 비교 제한(다른 task에서의 tool use 는 충분히 다루지 않음)
+    
+    ### Conclusion
+    
+    1. CoT는 주로 math와 formal logic에서 도움이 된다.
+    2. 그 이유는 CoT가 intermediate step을 추적하고 symbolic execution을 수행하는 데 도움을 주기 때문이다.
+    3. 하지만 CoT는 Python이나 Z3 같은 external solver보다 약하다.
+    4. 앞으로는 prompt-based CoT를 넘어 더 구조화된 reasoning 방법이 필요하다.
